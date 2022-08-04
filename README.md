@@ -131,7 +131,7 @@ mysql> SHOW TABLES;
 +---------------+
 5 rows in set (0.07 sec)
 ```
-Подключаем слэйв
+### Подключаем слэйв
 ```
 mysql> CHANGE MASTER TO MASTER_HOST = "192.168.50.10", MASTER_PORT = 3306, MASTER_USER = "repl", MASTER_PASSWORD = "!OtusLinux2018", MASTER_AUTO_POSITION = 1;
 Query OK, 0 rows affected, 2 warnings (0.11 sec)
@@ -200,7 +200,7 @@ mysql> show slave status\G
        Replicate_Ignore_Table: bet.events_on_demand,bet.v_same_event
 ```
 Видим, что слэйв работает, а в Replicate_Ignore_Table перечислены таблицы, которые игнорируются.
-Проверим репликацию в действии на мастере:
+### Проверим репликацию в действии на мастере:
 ```
 mysql> USE bet;
 Reading table information for completion of table and column names
