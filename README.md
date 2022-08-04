@@ -26,7 +26,8 @@ root@yarkozloff:/otus# vagrant --version
 Vagrant 2.2.19
 ```
 Для развертывания нам понадобится 2 машины master и slave. Используем для них локальный бокс centos7 (при необходимости загрузки образа из облака Vagrant - в Vagrantfile изменить config.vm.box на centos/7).
-### Подготовка master. После поднятия по vagrant up, провиженем машину ансиблом. Роль установит Percona-Server-server-57, скопирует необходимые мастеру конфиги, запустит службу mysql, скопирует дамп тестовой базы.
+### Подготовка master. 
+После поднятия по vagrant up, провиженем машину ансиблом. Роль установит Percona-Server-server-57, скопирует необходимые мастеру конфиги, запустит службу mysql, скопирует дамп тестовой базы.
 
 Далее подключаемся на маишну. При установке Percona автоматически генерирует пароль для пользователя root и кладет его в файл /var/log/mysqld.log. Достаем пароль и меняем его подключившись к mysql:
 ```
@@ -60,7 +61,7 @@ mysql>  SHOW VARIABLES LIKE 'gtid_mode';
 ```
 mysql> CREATE DATABASE bet;
 Query OK, 1 row affected (0.00 sec)
-```
+...
 [root@master ~]# mysql -uroot -p -D bet < /etc/my.cnf.d/bet.dmp
 ...
 mysql> USE bet;
@@ -93,13 +94,64 @@ mysql> SELECT user,host FROM mysql.user where user='repl';
 | repl | %    |
 +------+------+
 1 row in set (0.00 sec)
-```
+
 mysql> GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%' IDENTIFIED BY '!OtusLinux2018';
 Query OK, 0 rows affected, 1 warning (0.00 sec)
-
+```
 Дампим базу для последующего залива на слэйв и игнорируем таблицы по заданию:
 ```
 [root@master ~]# mysqldump --all-databases --triggers --routines --master-data --ignore-table=bet.events_on_demand --ignore-table=bet.v_same_event -uroot -p > master.sql
 ```
 Далее снова выполняю роль ансибл, для того чтобы вытащить дамп на основную маишну.
-### 
+### Подготовка slave.
+Выполняем роль для развертывания на slave компонента Percona-Server-server-57. Также перенесется дамп базы из мастера, скопируются конфиги. В конфиге 01-base.cnf правим server_id отличный от мастера, а в 05-binlog.cnf раскоментируем строки, которые будут игнорировать таблицы по заданию. 
+
+Подключаемся к машине.
+Заливаем дамп мастера, убеждаемся что база есть, и она без лишних таблиц:
+```
+mysql> SOURCE master.sql/master.sql/master/root/master.sql
+mysql> SHOW DATABASES LIKE 'bet';
++----------------+
+| Database (bet) |
++----------------+
+| bet            |
++----------------+
+1 row in set (0.00 sec)
+mysql> USE bet;
+Database changed
+mysql> SHOW TABLES;
++---------------+
+| Tables_in_bet |
++---------------+
+| bookmaker     |
+| competition   |
+| market        |
+| odds          |
+| outcome       |
++---------------+
+5 rows in set (0.07 sec)
+```
+Подключаем слэйв
+```
+mysql> CHANGE MASTER TO MASTER_HOST = "192.168.50.10", MASTER_PORT = 3306, MASTER_USER = "repl", MASTER_PASSWORD = "!OtusLinux2018", MASTER_AUTO_POSITION = 1;
+Query OK, 0 rows affected, 2 warnings (0.11 sec)
+
+mysql> START SLAVE;
+Query OK, 0 rows affected (0.02 sec)
+
+mysql> SHOW SLAVE STATUS\G
+*************************** 1. row ***************************
+               Slave_IO_State: Waiting for master to send event
+                  Master_Host: 192.168.50.10
+                  Master_User: repl
+                  Master_Port: 3306
+                Connect_Retry: 60
+              Master_Log_File: mysql-bin.000002
+          Read_Master_Log_Pos: 120423
+               Relay_Log_File: slave-relay-bin.000002
+                Relay_Log_Pos: 627
+        Relay_Master_Log_File: mysql-bin.000002
+             Slave_IO_Running: Yes
+            Slave_SQL_Running: No
+```
+Видим, что слэйв не запускается. Смотрим ошибки: Last_Error: Error 'Can't create database 'bet'; database exists' on query. Default database: 'bet'. Query: 'CREATE DATABASE bet'
