@@ -236,3 +236,19 @@ mysql> SELECT * FROM bookmaker;
 +----+----------------+
 5 rows in set (0.08 sec)
 ```
+Попытался найти bin логи mysql, но на слэйве нашел их не в не очень корректном виде:
+```
+[root@slave ~]# cat /var/lib/mysql/
+auto.cnf                ib_logfile0             mysql.sock.lock         slave-relay-bin.000003
+bet/                    ib_logfile1             performance_schema/     slave-relay-bin.index
+ca-key.pem              ibtmp1                  private_key.pem         slave-slow.log
+ca.pem                  master.info             public_key.pem          sys/
+client-cert.pem         mysql/                  relay-log.info          xb_doublewrite
+client-key.pem          mysql-bin.000001        server-cert.pem
+ib_buffer_pool          mysql-bin.index         server-key.pem
+ibdata1                 mysql.sock              slave-relay-bin.000002
+[root@slave ~]# cat /var/lib/mysql/slave-relay-bin.000003
+```
+![image](https://user-images.githubusercontent.com/69105791/182964720-cbdb549b-3904-4be5-86a6-e84cec5d7254.png)
+
+Но, тут видно последнее изменение строки
