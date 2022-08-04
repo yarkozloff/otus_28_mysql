@@ -155,3 +155,84 @@ mysql> SHOW SLAVE STATUS\G
             Slave_SQL_Running: No
 ```
 Видим, что слэйв не запускается. Смотрим ошибки: Last_Error: Error 'Can't create database 'bet'; database exists' on query. Default database: 'bet'. Query: 'CREATE DATABASE bet'
+
+Пробуем остановить слэйв. Смотрим статус мастера из слэйва:
+```
+mysql> SHOW MASTER STATUS;
++------------------+----------+--------------+------------------+-------------------+
+| File             | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++------------------+----------+--------------+------------------+-------------------+
+| mysql-bin.000001 |      154 |              |                  |                   |
++------------------+----------+--------------+------------------+-------------------+
+1 row in set (0.00 sec)
+```
+Смотрим статус мастера из мастера:
+```
+mysql> SHOW MASTER STATUS;
++------------------+----------+--------------+------------------+-------------------------------------------+
+| File             | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set                         |
++------------------+----------+--------------+------------------+-------------------------------------------+
+| mysql-bin.000002 |   120423 |              |                  | c8523631-142c-11ed-a983-5254004d77d3:1-42 |
+```
+Пробуем установить идентификатор GTID в слэйв:
+```
+mysql> set global GTID_PURGED="c8523631-142c-11ed-a983-5254004d77d3:1-42";
+```
+Стартуем слэйв, смотрим статус:
+```
+mysql> show slave status\G
+*************************** 1. row ***************************
+               Slave_IO_State: Waiting for master to send event
+                  Master_Host: 192.168.50.10
+                  Master_User: repl
+                  Master_Port: 3306
+                Connect_Retry: 60
+              Master_Log_File: mysql-bin.000002
+          Read_Master_Log_Pos: 120423
+               Relay_Log_File: slave-relay-bin.000003
+                Relay_Log_Pos: 470
+        Relay_Master_Log_File: mysql-bin.000002
+             Slave_IO_Running: Yes
+            Slave_SQL_Running: Yes
+              Replicate_Do_DB:
+          Replicate_Ignore_DB:
+           Replicate_Do_Table:
+       Replicate_Ignore_Table: bet.events_on_demand,bet.v_same_event
+```
+Видим, что слэйв работает, а в Replicate_Ignore_Table перечислены таблицы, которые игнорируются.
+Проверим репликацию в действии на мастере:
+```
+mysql> USE bet;
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Database changed
+mysql>  INSERT INTO bookmaker (id,bookmaker_name) VALUES(1,'1xbet');
+Query OK, 1 row affected (0.07 sec)
+
+mysql> SELECT * FROM bookmaker;
++----+----------------+
+| id | bookmaker_name |
++----+----------------+
+|  1 | 1xbet          |
+|  4 | betway         |
+|  5 | bwin           |
+|  6 | ladbrokes      |
+|  3 | unibet         |
++----+----------------+
+5 rows in set (0.00 sec)
+```
+На слэйве:
+```
+mysql> SELECT * FROM bookmaker;
++----+----------------+
+| id | bookmaker_name |
++----+----------------+
+|  1 | 1xbet          |
+|  4 | betway         |
+|  5 | bwin           |
+|  6 | ladbrokes      |
+|  3 | unibet         |
++----+----------------+
+5 rows in set (0.08 sec)
+```
