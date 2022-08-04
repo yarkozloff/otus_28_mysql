@@ -1,0 +1,98 @@
+---
+- name: Deploy master mysql
+  hosts: master # имя хоста
+  become: yes
+  gather_facts: false
+  tasks:
+
+  - name: update yum caсhe
+    yum:
+      update_cache: true
+
+  - name: Add Percona yum repository
+    yum:
+      name: 
+        - https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+      state: present
+
+  - name: Install Percona
+    yum:
+      name: 
+        - Percona-Server-server-57
+      state: present
+
+  - name: copy dmp
+    copy: 
+      src=bet.dmp
+      dest=/home/bet.dmp
+
+  - name: copy conf
+    copy: 
+      src=files_master/
+      dest=/etc/my.cnf.d/
+
+  - name: Start a service mysql
+    systemd:
+      name: mysql
+      state: started
+      enabled: yes
+
+  - name: pass step_1 save
+    shell: cat /var/log/mysqld.log | grep 'root@localhost:' | awk '{print $11}' > /home/pass
+
+  - name: copydb
+    fetch:
+      src: /root/master.sql
+      dest: /otus/mysql/master.sql
+    ignore_errors: yes
+
+
+- name: Deploy slave mysql
+  hosts: slave # имя хоста
+  become: yes
+  gather_facts: false
+  tasks:
+
+  - name: update yum caсhe
+    yum:
+      update_cache: true
+
+  - name: Add Percona yum repository
+    yum:
+      name: 
+        - https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+      state: present
+
+  - name: Install Percona
+    yum:
+      name: 
+        - Percona-Server-server-57
+      state: present
+
+  - name: copy db
+    copy: 
+      src=/otus/mysql/master.sql
+      dest=/root/master.sql
+
+  - name: copy conf
+    copy: 
+      src=files_slave/
+      dest=/etc/my.cnf.d/
+
+  - name: Start a service mysql
+    systemd:
+      name: mysql
+      state: started
+      enabled: yes
+
+  - name: pass step_1 save
+    shell: cat /var/log/mysqld.log | grep 'root@localhost:' | awk '{print $11}' > /home/pass
+
+
+
+
+
+  
+
+
+
